@@ -348,41 +348,43 @@ class level_entitys(menu_entity):#おそらくこれは消えるだろう！
 
 class back_entitys:
     def __init__(self,img_name,size,draw_point,clear,info):
-        self.clear = clear
-        img = image_changer(img_name,size)
-        super().__init__(img_name,img,draw_point,info)
+        if not info["acction"] == True:
+            self.img = image_changer(img_name,size)
+            self.img.set_alpha(clear)
+            self.draw_point = draw_point
 
     def draw(self , mode):
         if mode == "menu":
             back_surface.blit(self.img, self.draw_point)
 
-
 class button_entity:
-    def __init__(self,img_name,size,draw_point,push_range,mode,info):
+    def __init__(self,img_name,size,draw_point,push_range,info):
         if info["acction"] == True:
-            defa_clear = 255 #エンティティーの初期透明度の指定　min:0 max:255
+            self.min_clear = 0 #一番透明な状態
+            self.max_clear = 255 #一番不透明な状態
+            self.clear = 0 #実際の透明度の値
 
         else:
-            defa_clear = 0 #エンティティーの初期透明度の指定　min:0 max:255
+            self.clear = 0 #実際の透明度の値
 
-        img = image_changer(img_name,size)
-        super().__init__(img_name,img,draw_point,defa_clear,move)
-
-        self.mode_seter = mode_seter
+        self.img = image_changer(img_name,size)
+        self.mode = info["mode"]
         self.push_range = push_range
+        self.draw_point = draw_point
 
-        self.count = 0
+    def draw(self , mode):
+        if mode == "menu":
+            back_surface.blit(self.img, self.draw_point)
 
-    
     def action(self):
         global difficulty_level
         if difficulty_level != None:
-            self.now_clear += 5
-            if self.now_clear > 255:
-                self.now_clear = 0#またメニューに戻ってきても押せるようにリセットする。
+            self.clear += 5
+            if self.clear > self.max_clear:
+                self.clear = 0 #またメニューに戻ってきても押せるようにリセットする。
                 global mode
                 global circle_time
-                mode = self.mode_seter
+                mode = self.mode
 
                 if difficulty_level == "easy":
                     circle_time = 5
@@ -398,7 +400,7 @@ class button_entity:
 
 
     def back_action(self):
-        self.now_clear -= 3
+        self.clear -= 10
         if self.now_clear < self.defa_clear:
             self.now_clear = self.defa_clear
 
