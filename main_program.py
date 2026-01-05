@@ -9,7 +9,7 @@ import hid #pip install hidapi
 import math
 
 #pipいらない
-import numpy
+import numpy as np
 import random
 import sys
 import time
@@ -27,7 +27,9 @@ fps = 100
 
 split_varue = 20 #円が出てくるマス目の細かさ
 
-# use_aruco = True #True:設定したarucoマーカを追尾　False:マウスカードルを追尾
+use_aruco = False #True:設定したarucoマーカを追尾　False:マウスカードルを追尾
+
+use_wii = False #True:wiiを使った重力加速度を使った機能を開放　False:追加機能なしで続行
 
 comment_size = 200 #コメントのサイズを指定する
 
@@ -62,19 +64,6 @@ back_surface = pygame.Surface((w,h),pygame.SRCALPHA)
 circle_time = 1 #0にするとZeroDivisionErrorが出る
 
 check_count = 0
-
-def random_color():
-    return (random.randint(0,255),random.randint(0,255),random.randint(0,255))
-
-
-def random_position(length):
-    circle_spot = length // split_varue
-    return random.randint(circle_spot , length - circle_spot)
-
-def make_circle():
-    m = random.choice(player_marker_list)
-    m.draw_point = (random_position(w),random_position(h))
-    m.choice = True
     
 def change_x(A, B, now):
     x1, y1 = A
@@ -104,78 +93,34 @@ def player_chenge_point(player):
 
     else:
         return pygame.mouse.get_pos()
-        
-
-    # left_x = change_x(left_top,left_bottom,player)
-    # right_x = change_x(right_top,right_bottom,player)
-
-    # mouse_x = int(w * 0.8 * (player[0] - left_x) / (right_x - left_x) + w * 0.1)
-
-    # #print(f"横 :{left_x,player[0],right_x, mouse_x}")
-
-    # top_y = change_y(left_top,right_top,player)
-    # bottom_y = change_y(left_bottom,right_bottom,player)
-
-    # mouse_y = int(h * 0.8 * (player[1] -  top_y) / (bottom_y - top_y) + h * 0.1) #多分なんかやらかしてる。ああああああああああああああああああああああああああああああああああああああああ
-
-    # #print(f"縦 :{top_y,player[1],bottom_y, mouse_y}")
-
-    # return mouse_x , mouse_y
     
-choice_log = ""
-
-def random_choice(entitys):
-    global choice_log
-    while True:
-        if type(entitys) == list:
-            entity = random.choice(entitys)
-            if not choice_log == entity:
-            entity.choice = True
-
-    return
-
-
-def image_changer(img_name,size):
-    img = pygame.image.load(img_name)
-    scale = size / img.get_width()
-    img_data = pygame.transform.scale(img, (img.get_width()*scale, img.get_height()*scale))
-    return img_data
 
 
 clock = pygame.time.Clock()
 
 class aruco_entity:
     def __init__(self,marker_id,set_point):
-        self.count = 1000
-        self.marker_id = marker_id
+        self.count = 1000 #カメラに映ってからの時間を計測に使う値。時間間隔はfps変数に依存
+        self.marker_id = marker_id #arucoマーカーのid
         self.set_point = set_point
-        self.draw_point = set_point
-        self.now_point = (0,0) #プレイヤーの位置を特定するのに必要な値（初期値）
-        self.clear = 0
+        self.now_point = (0,0) #プレイヤーの位置を特定するのに必要な値
 
-    def count_plus1(self):
+    def count_plus1(self):#カメラに映ってからの時間を計測
         global fps
         global circle_time
         self.count += 1
     
-    def set_now_point(self, now_point):
+    def set_now_point(self, now_point):#arucoマーカーの移動に対応して座標の再設定を行う.
         self.now_point = now_point
         self.count = 0
-
-    def set_mode(self):
-        self.count += 1
-        if self.marker_id <= 4:
-            pygame.draw.circle(back_surface, (255,0,0),(self.set_point), 30)
-
-        else:
-            back_surface.blit(self.img,self.set_point)
     
-
 class edge_marker(aruco_entity):
-    def __init__(self,marker_id,name,draw_point):
-        super().__init__(marker_id,draw_point)
+    def __init__(self,marker_id,set_point):
+        self.clear = 0 #drawした時の透明度(アルファ値)
+        self.draw_point = (0,0)
+        self.choice = False
 
-        self.name = name
+        super().__init__(marker_id,set_point)
 
     def draw(self, mode):
         if mode == "set":
@@ -184,18 +129,17 @@ class edge_marker(aruco_entity):
             else:
                 pygame.draw.circle(back_surface, (255,0,0),(self.set_point), 30)
 
-
 class player_marker(aruco_entity): #画像データと座標データ分ける？
-    def __init__(self,marker_id,img_name,size,draw_point):
+    def __init__(self,marker_id,img_name,size,set_point):
         self.img_size = 180
+        self.draw_point = (0,0)
         self.img = image_changer(img_name,size)
         draw_point = set_img_point(draw_point,size)
         self.push_range = 0,0,0,0
-        #マーカーが表示されるか否か
-        self.choice = False
-        #self.clear は継承後のクラスで宣言しています(aruco_entity)
+        self.choice = False #画面に表示されるかどうか
+        self.clear = 0 #drawした時の透明度(アルファ値)
 
-        super().__init__(marker_id,draw_point)
+        super().__init__(marker_id,set_point)
 
     def draw(self, mode):
         img_point = set_img_point(self.draw_point,self.img_size)
@@ -211,17 +155,18 @@ class player_marker(aruco_entity): #画像データと座標データ分ける�
                 pygame.draw.circle(front_surface, (255,255,255),player_chenge_point(self.now_point), 30)
 
         if mode == "play":
-            if self.choice:
+            if self.choice == True:
                 self.clear += 20
+                
                 if self.clear > 255:
                     self.clear = 255
-                x , y = self.draw_point
-                self.push_range = x-45, x+45,y-45, y+45#ここの値を後で変える。
-                if self.clear == 255:                     
+                    x , y = self.draw_point
+                    self.push_range = x-45, x+45,y-45, y+45#ここの値を後で変える。
+                if self.clear == 255:                 
                     push_checker(player_chenge_point(self.now_point),self)
 
             else:
-                self.clear -= 20
+                self.clear -= 40
                 if self.clear < 0:
                     self.clear = 0
 
@@ -283,7 +228,7 @@ class wii_entity:
                 self.clear += 20
 
             else:
-                self.clear -= 20
+                self.clear -= 40
 
             if self.clear > 255:
                 self.clear = 255
@@ -334,37 +279,23 @@ class coment_text:
         if self.clear < 0:
             self.clear = 0
 
-                
-
 def count_checker():
     for i in set_entity_list:
         if i.count > 5:
             return False
     return True
 
-
-
 class menu_entity:
-    def __init__(self,img_name,img,draw_point,defa_clear,move):
+    def __init__(self,img_name,img,draw_point,defa_clear,info):
         self.img_name = img_name
         self.img = img
         self.draw_point = draw_point
         self.defa_clear = defa_clear#初めの透明度をメモしておく
         self.now_clear = defa_clear#今の透明度を表す値
-        self.move = move#動くエンティティーかどうか(surfaceを区別する為)
-
-    def draw(self):
-        if self.move == True:
-            self.img.set_alpha(self.now_clear)
-            middle_surface.blit(self.img, self.draw_point)
-
-        else:
-            back_surface.blit(self.img, self.draw_point)
+        self.info = info#動くエンティティーかどうか(surfaceを区別する為)
         
-
-
 class level_entitys(menu_entity):#おそらくこれは消えるだろう！
-    def __init__(self,img_name,size,draw_point,push_range,level_seter,move):
+    def __init__(self,img_name,size,draw_point,push_range,level_seter,info):
         if move == True:
             defa_clear = 0 #エンティティーの初期透明度の指定　min:0 max:255
             img = image_changer(img_name,size)
@@ -373,7 +304,7 @@ class level_entitys(menu_entity):#おそらくこれは消えるだろう！
             defa_clear = 255
             img = image_changer(img_name,size)
 
-        super().__init__(img_name,img,draw_point,defa_clear,move)
+        super().__init__(img_name,img,draw_point,defa_clear,info)
 
         self.push_range = push_range
         self.level_seter = level_seter
@@ -382,6 +313,16 @@ class level_entitys(menu_entity):#おそらくこれは消えるだろう！
         if img_name == "moveeasy.png": #難易度の初期設定がEASYになるようにする。 関数action もしくは back_action に関係するかは行数607の()の中の一番最後の引数を参照してね！
             self.now_chews = True
             self.now_clear = 255
+
+
+    def draw(self , mode):
+        if mode == "menu":
+            if self.info["acction"] == True:
+                self.img.set_alpha(self.now_clear)
+                middle_surface.blit(self.img, self.draw_point)
+
+            else:
+                back_surface.blit(self.img, self.draw_point)
 
     def action(self):
         self.now_clear += 10 #この値でどれくらい長押し？すればアクションが起きるかを設定できる。
@@ -405,23 +346,24 @@ class level_entitys(menu_entity):#おそらくこれは消えるだろう！
 
 
 
-class back_entity(menu_entity):
-    def __init__(self,img_name,size,draw_point):
-        defa_clear = 255
-        move = False
+class back_entitys:
+    def __init__(self,img_name,size,draw_point,clear,info):
+        self.clear = clear
         img = image_changer(img_name,size)
-        super().__init__(img_name,img,draw_point,defa_clear,move)
+        super().__init__(img_name,img,draw_point,info)
+
+    def draw(self , mode):
+        if mode == "menu":
+            back_surface.blit(self.img, self.draw_point)
 
 
-class start_button_entity(menu_entity):
-    def __init__(self,img_name,size,draw_point,push_range,mode_seter):
-        if img_name == "start_button.png":
+class button_entity:
+    def __init__(self,img_name,size,draw_point,push_range,mode,info):
+        if info["acction"] == True:
             defa_clear = 255 #エンティティーの初期透明度の指定　min:0 max:255
-            move = False
 
         else:
             defa_clear = 0 #エンティティーの初期透明度の指定　min:0 max:255
-            move = True
 
         img = image_changer(img_name,size)
         super().__init__(img_name,img,draw_point,defa_clear,move)
@@ -593,11 +535,20 @@ def menu_manager(cursor):
 
 
 
+#処理で使うためのクラスをまとめたリスト
+all_entity = []
+set_entity_list = [] #arucoマーカの座標を管理するクラスのリスト
+menu_entity_list = []#mode = "menu"の時に使うクラスのリスト
+play_entitys = [] #mode = "play"の時に使うクラスのリスト
+
+#------------------------------------------------------------------------
+
 comment_list = [
     coment_text("good.png"),
 ]
+all_entity.append(comment_list)
 
-
+#------------------------------------------------------------------------
 
 edge_marker_list = [
     edge_marker(1,"left_top",[int(w * 0.1),int(h * 0.1)]),
@@ -605,6 +556,10 @@ edge_marker_list = [
     edge_marker(3,"right_buttom",[int(w * 0.9),int(h * 0.9)]),
     edge_marker(4,"left_buttom",[int(w * 0.1),int(h * 0.9)])
 ]
+all_entity.append(edge_marker_list)
+set_entity_list.append(edge_marker_list)
+
+#------------------------------------------------------------------------
 
 player_marker_list = [
     player_marker(5,"blue_feet.png",circle_size,[(w * 5 // 9) - 90,(h * 1 // 9) - 50]),
@@ -612,10 +567,11 @@ player_marker_list = [
     player_marker(7,"blue_hand.png",circle_size,[(w * 4 // 9) - 90,(h * 1 // 9) - 50]),
     player_marker(8,"red_hand.png",circle_size,[(w * 4 // 9) - 90,(h * 2 // 9) - 50])
 ]
+all_entity.append(player_marker_list)
+set_entity_list.append(player_marker_list)
+play_entitys.append(player_marker_list)
 
-set_entity_list = edge_marker_list + player_marker_list #セットモードで使うリスト+座標設定にも使ってる。 mode = "play" でもたたいてる
-
-
+#------------------------------------------------------------------------
 
 level_entity_list = [
     level_entitys("moveeasy.png",level_size,((w * 3 / 12) -300,(h / 3) - 167),(277,679,242,485),"easy",True),
@@ -625,35 +581,53 @@ level_entity_list = [
     level_entitys("movehard.png",level_size,((w * 9 / 12) -300,(h / 3) - 167),(1237,1639,242,485),"hard",True),
     level_entitys("hard.png",level_size,((w * 9 / 12) -300,(h / 3) - 167),None,None,False)
 ]
+all_entity.append(level_entity_list)
+menu_entity_list.append(level_entity_list)
+
+#-----------------------------------------------------------------------
 
 start_button_list = [
     start_button_entity("start_button.png",button_size,((w / 2) -500,(h * 4 / 5) -278),None,None),
     start_button_entity("start_button_frame.png",button_size,((w / 2) -500,(h * 4 / 5) -278),(524,1398,734,1006),"play")
 ]
+all_entity.append(start_button_list)
+menu_entity_list.append(start_button_list)
+
+#------------------------------------------------------------------------
 
 back_entity_list = [
     back_entity("level_frame.png",level_frame_size,((w / 2) - 900,(h / 2) - 500))
 ]
+all_entity.append(back_entity_list)
+menu_entity_list.append(back_entity_list)
+
+#------------------------------------------------------------------------
 
 result_texts = [
     "よくがんばりました！","はなまる！","がんばれたね！","おめでとう！","めいっぱいがんばったね！","すごい！",
 ]
+all_entity.append(result_texts)
 
-menu_entity_list = back_entity_list + level_entity_list + start_button_list #メニューモードで使うリスト
+#------------------------------------------------------------------------
 
-# wiiリモコンの認識番号(ID)を設定する
-TARGET_VID = 0x057e
-TARGET_PID = 0x0306
 
-# Wiiリモコンから欲しいデータを要求するための値
-REPORT_MODE_ACCEL = 0x31
-HID_OUTPUT_REPORT_ID = 0x12
 
-jump_entity_list = [#ingsizeは後で要調整　イメージはgoogle スライド参照
-    wii_entity("jump.png",1000,[(TARGET_VID,TARGET_PID),[REPORT_MODE_ACCEL,HID_OUTPUT_REPORT_ID]])
-]
 
-play_entitys = jump_entity_list + player_marker_list
+
+if use_wii == True:
+    # wiiリモコンの認識番号(ID)を設定する
+    TARGET_VID = 0x057e
+    TARGET_PID = 0x0306
+
+    # Wiiリモコンから欲しいデータを要求するための値
+    REPORT_MODE_ACCEL = 0x31
+    HID_OUTPUT_REPORT_ID = 0x12
+
+    jump_entity_list = [#ingsizeは後で要調整　イメージはgoogle スライド参照
+        wii_entity("jump.png",1000,[(TARGET_VID,TARGET_PID),[REPORT_MODE_ACCEL,HID_OUTPUT_REPORT_ID]])
+    ]
+
+    play_entitys.append(jump_entity_list)
 
 
 count_timer = counter()
@@ -708,10 +682,17 @@ while running:
 
 
     if mode == "set":
+        for e in set_entitys:
+            if e.choice == True:
+                e.draw(mode="end")
+
         if count_checker():
             mode = "menu"
 
     elif mode == "menu":
+        for e in menu_entitys:
+            if e.choice == True:
+                e.draw(mode="end")
         player = (0, 0)
         for i in player_marker_list:
             if i.marker_id == 6:#marker_idの6は"赤足.png"
@@ -729,6 +710,9 @@ while running:
 
     elif mode == "play":
         #円にふれたら新しく生成するので時間生成はなくなった
+        for e in play_entitys:
+            if e.choice == True:
+                e.draw(mode="end")
 
         if scan_count % fps == 0:
             if count_timer.count():
@@ -741,7 +725,10 @@ while running:
         if mode == "end":#mode が endになって初めの一回のみ宣言する
             fps = 1#ラグ回避のためにfpsを一時的に下げる
 
-    elif mode == "end": 
+    elif mode == "end":
+        for e in end_entitys:
+            if e.choice == True:
+                e.draw(mode="end")
 
         count_result.draw()
         if scan_count % fps == 0:
@@ -750,13 +737,6 @@ while running:
         
         if mode == "menu":#mode が menuになって初めの一回のみ宣言する
             fps = 100#デフォルトのfps 100
-
-
-
-    for e in set_entity_list:
-        e.draw(mode)
-
-
 
     screen.blit(back_surface,(0,0))
 
