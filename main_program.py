@@ -33,14 +33,6 @@ use_wii = False #True:wiiを使った重力加速度を使った機能を開放�
 
 comment_size = 200 #コメントのサイズを指定する
 
-circle_size = 180#表示される円の大きさ
-
-level_frame_size = 1800#レベルを囲んでいる枠の大きさ
-
-level_size = 600#難易度boxの大きさ
-
-button_size = 1000#スタートボタンの大きさ
-
 play_time = 60
 
 #変更不可
@@ -115,12 +107,13 @@ class aruco_entity:
         self.count = 0
     
 class edge_marker(aruco_entity):
-    def __init__(self,marker_id,set_point):
+    def __init__(self , info):
+        self.info = info
         self.clear = 0 #drawした時の透明度(アルファ値)
         self.draw_point = (0,0)
         self.choice = False
 
-        super().__init__(marker_id,set_point)
+        super().__init__(info["marker_id"],info["set_point"])
 
     def draw(self, mode):
         if mode == "set":
@@ -130,12 +123,12 @@ class edge_marker(aruco_entity):
                 pygame.draw.circle(back_surface, (255,0,0),(self.set_point), 30)
 
 class player_marker(aruco_entity): #画像データと座標データ分ける？
-    def __init__(self,marker_id,img_name,size,set_point):
-        self.img_size = 180
+    def __init__(self,marker_id,img_name,,set_point):
+        img_size = 180
         self.draw_point = (0,0)
-        self.img = image_changer(img_name,size)
-        draw_point = set_img_point(draw_point,size)
-        self.push_range = 0,0,0,0
+        self.img = image_changer(img_name,img_size)
+        draw_point = set_img_point(draw_point,img_size)
+        self.hit_box = 0,0,0,0
         self.choice = False #画面に表示されるかどうか
         self.clear = 0 #drawした時の透明度(アルファ値)
 
@@ -161,7 +154,7 @@ class player_marker(aruco_entity): #画像データと座標データ分ける�
                 if self.clear > 255:
                     self.clear = 255
                     x , y = self.draw_point
-                    self.push_range = x-45, x+45,y-45, y+45#ここの値を後で変える。
+                    self.hit_box = x-45, x+45,y-45, y+45#ここの値を後で変える。
                 if self.clear == 255:                 
                     push_checker(player_chenge_point(self.now_point),self)
 
@@ -197,7 +190,7 @@ class wii_entity:
         self.clear = 0
         self.jump_count = 0
         self.push_count = 0
-        self.push_range = 0,0,w,h #全画面
+        self.hit_box = 0,0,w,h #全画面
         self.choice = True
 
         try:
@@ -262,22 +255,23 @@ def img_range_changer(size):
 
 
 class coment_text:
-    def __init__(self,img_name):
-        self.img = image_changer(img_name,400)
+    def __init__(self,info):
+        self.img = image_changer(info["img_name"],info["size"])
         self.draw_point = (0,0)
+        self.clear_range = {"max":255 ,"min":0}
         self.clear = 0
 
     def make(self,draw_point):
         self.draw_point = draw_point
-        self.clear = 255
+        self.clear = self.clear_range["max"]
 
     def draw(self):
         self.img.set_alpha(self.clear)
         front_surface.blit(self.img,self.draw_point)
 
         self.clear -= 1
-        if self.clear < 0:
-            self.clear = 0
+        if self.clear < self.clear_range["min"]:
+            self.clear = self.clear_range["min"]
 
 def count_checker():
     for i in set_entity_list:
@@ -285,49 +279,36 @@ def count_checker():
             return False
     return True
 
-class menu_entity:
-    def __init__(self,img_name,img,draw_point,defa_clear,info):
-        self.img_name = img_name
-        self.img = img
-        self.draw_point = draw_point
-        self.defa_clear = defa_clear#初めの透明度をメモしておく
-        self.now_clear = defa_clear#今の透明度を表す値
-        self.info = info#動くエンティティーかどうか(surfaceを区別する為)
         
-class level_entitys(menu_entity):#おそらくこれは消えるだろう！
-    def __init__(self,img_name,size,draw_point,push_range,level_seter,info):
-        if move == True:
-            defa_clear = 0 #エンティティーの初期透明度の指定　min:0 max:255
-            img = image_changer(img_name,size)
+class level_entitys:
+    def __init__(self , info):
+        img_size = 600
+        self.img = image_changer(info["img_name"],img_size)
+        self.choice = False
+        self.clear = 255 #エンティティーの初期透明度の指定
+        self.info = info
+        
+        if info["acction"] == True:
+            self.clear = 0 #エンティティーの初期透明度の指定　min:0 max:255
+            self.clear_range = {"max" : 255 , "min" : 0}
 
-        else:
-            defa_clear = 255
-            img = image_changer(img_name,size)
-
-        super().__init__(img_name,img,draw_point,defa_clear,info)
-
-        self.push_range = push_range
-        self.level_seter = level_seter
-        self.now_chews = False#今選択されているクラスであるかどうか。
-
-        if img_name == "moveeasy.png": #難易度の初期設定がEASYになるようにする。 関数action もしくは back_action に関係するかは行数607の()の中の一番最後の引数を参照してね！
-            self.now_chews = True
-            self.now_clear = 255
-
-
+            if info["level"] == "easy": #初期設定として難易度をeasyにする。
+                self.clear = 255 #エンティティーの初期透明度の指定　min:0 max:255
+                self.choice = True
+            
     def draw(self , mode):
         if mode == "menu":
+            self.img.set_alpha(self.clear)
             if self.info["acction"] == True:
-                self.img.set_alpha(self.now_clear)
-                middle_surface.blit(self.img, self.draw_point)
+                middle_surface.blit(self.img, self.info["draw_point"])
 
             else:
-                back_surface.blit(self.img, self.draw_point)
+                back_surface.blit(self.img, self.info["draw_point"])
 
     def action(self):
         self.now_clear += 10 #この値でどれくらい長押し？すればアクションが起きるかを設定できる。
-        if self.now_clear > 255:
-            self.now_clear = 255
+        if self.now_clear > self.clear_range["max"]:
+            self.now_clear = self.clear_range["max"]
 
             for i in level_entity_list:
                 i.now_chews = False
@@ -336,55 +317,51 @@ class level_entitys(menu_entity):#おそらくこれは消えるだろう！
             global difficulty_level
             difficulty_level = self.level_seter
 
-
     def back_action(self):
-        if not self.now_chews:
+        if not self.choice == True:
             # 別のモードが選択された時に消えるスピード
-            self.now_clear -= 60
-            if self.now_clear < self.defa_clear:
-                self.now_clear = self.defa_clear
-
-
+            self.clear -= 60
+            if self.clear < self.clear_range["min"]:
+                self.clear = self.clear_range["min"]
 
 class back_entitys:
-    def __init__(self,img_name,size,draw_point,clear,info):
-        if not info["acction"] == True:
-            self.img = image_changer(img_name,size)
-            self.img.set_alpha(clear)
-            self.draw_point = draw_point
+    def __init__(self , info):
+            img_size = 1800
+            self.info = info
+            self.img = image_changer(info["img_name"],img_size)
 
     def draw(self , mode):
         if mode == "menu":
-            back_surface.blit(self.img, self.draw_point)
+            back_surface.blit(self.img, self.info["draw_point"])
 
 class button_entity:
-    def __init__(self,img_name,size,draw_point,push_range,info):
+    def __init__(self , info):
         if info["acction"] == True:
-            self.min_clear = 0 #一番透明な状態
-            self.max_clear = 255 #一番不透明な状態
+            self.clear_range = {"max":255 ,"min":0} #一番透明な状態
             self.clear = 0 #実際の透明度の値
 
         else:
-            self.clear = 0 #実際の透明度の値
-
-        self.img = image_changer(img_name,size)
-        self.mode = info["mode"]
-        self.push_range = push_range
-        self.draw_point = draw_point
+            self.clear = 255 #実際の透明度の値
+        
+        self.info = info
+        img_size = 1000
+        self.img = image_changer(info["img_name"],img_size)
 
     def draw(self , mode):
-        if mode == "menu":
-            back_surface.blit(self.img, self.draw_point)
+        if self.info["draw_mode"] == "menu":
+            self.img.set_alpha(self.clear)
+            back_surface.blit(self.img, self.info["draw_point"])
 
     def action(self):
         global difficulty_level
         if difficulty_level != None:
             self.clear += 5
-            if self.clear > self.max_clear:
+            self.img
+            if self.clear > self.clear_range["max"]:
                 self.clear = 0 #またメニューに戻ってきても押せるようにリセットする。
                 global mode
                 global circle_time
-                mode = self.mode
+                mode = self.info["change_mode"]
 
                 if difficulty_level == "easy":
                     circle_time = 5
@@ -397,14 +374,11 @@ class button_entity:
 
                 count_timer.reset(play_time) #play_time はモードplayの持続時間
         
-
-
     def back_action(self):
-        self.clear -= 10
-        if self.now_clear < self.defa_clear:
-            self.now_clear = self.defa_clear
+        self.clear -= 20
+        if self.now_clear < self.clear_range["min"]:
+            self.now_clear = self.clear_range["min"]
 
-        
 def text_draw(text,font,draw_point,get_color = None):
     if not get_color == None:
         color = get_color
@@ -468,7 +442,7 @@ class play_result:
 
 def push_checker(cursor,entity):
     #aから始まるものはアンダー（底辺）に当たる座標。tから始まるものはトップ（上底）に当たる座標。
-    a_x , t_x , a_y , t_y = entity.push_range
+    a_x , t_x , a_y , t_y = entity.hit_box
     c_x , c_y = cursor
 
     if a_x <= c_x <= t_x and a_y <= c_y <= t_y:
@@ -546,42 +520,39 @@ play_entitys = [] #mode = "play"の時に使うクラスのリスト
 #------------------------------------------------------------------------
 
 comment_list = [
-    coment_text("good.png"),
+    coment_text({"img_name":"good.png" ,"size":400}),
 ]
-all_entity.append(comment_list)
 
 #------------------------------------------------------------------------
 
 edge_marker_list = [
-    edge_marker(1,"left_top",[int(w * 0.1),int(h * 0.1)]),
-    edge_marker(2,"right_top",[int(w * 0.9),int(h * 0.1)]),
-    edge_marker(3,"right_buttom",[int(w * 0.9),int(h * 0.9)]),
-    edge_marker(4,"left_buttom",[int(w * 0.1),int(h * 0.9)])
+    edge_marker({"marker_id":1 ,"ing_name":"left_top.png" ,"set_point":[int(w * 0.1),int(h * 0.1)]}),
+    edge_marker({"marker_id":2 ,"ing_name":"right_top.png" ,"set_point":[int(w * 0.9),int(h * 0.1)]}),
+    edge_marker({"marker_id":3 ,"ing_name":"right_buttom.png" ,"set_point":[int(w * 0.9),int(h * 0.9)]}),
+    edge_marker({"marker_id":4 ,"ing_name":"left_buttom.png" ,"set_point":[int(w * 0.1),int(h * 0.9)]})
 ]
-all_entity.append(edge_marker_list)
 set_entity_list.append(edge_marker_list)
 
 #------------------------------------------------------------------------
 
 player_marker_list = [
-    player_marker(5,"blue_feet.png",circle_size,[(w * 5 // 9) - 90,(h * 1 // 9) - 50]),
-    player_marker(6,"red_feet.png",circle_size,[(w * 5 // 9) - 90,(h * 2 // 9) - 50]),
-    player_marker(7,"blue_hand.png",circle_size,[(w * 4 // 9) - 90,(h * 1 // 9) - 50]),
-    player_marker(8,"red_hand.png",circle_size,[(w * 4 // 9) - 90,(h * 2 // 9) - 50])
+    player_marker({"marker_id":5 ,"ing_name":"blue_feet.png" ,"set_point":[(w * 5 // 9) - 90,(h * 1 // 9) - 50]}),
+    player_marker({"marker_id":6 ,"ing_name":"red_feet.png" ,"set_point":[(w * 5 // 9) - 90,(h * 2 // 9) - 50]}),
+    player_marker({"marker_id":7 ,"ing_name":"blue_hand.png" ,"set_point":[(w * 4 // 9) - 90,(h * 1 // 9) - 50]}),
+    player_marker({"marker_id":8 ,"ing_name":"red_hand.png" ,"set_point":[(w * 4 // 9) - 90,(h * 2 // 9) - 50]})
 ]
-all_entity.append(player_marker_list)
 set_entity_list.append(player_marker_list)
 play_entitys.append(player_marker_list)
 
 #------------------------------------------------------------------------
 
 level_entity_list = [
-    level_entitys("moveeasy.png",level_size,((w * 3 / 12) -300,(h / 3) - 167),(277,679,242,485),"easy",True),
-    level_entitys("easy.png",level_size,((w * 3 / 12) -300,(h / 3) - 167),None,None,False),
-    level_entitys("movenormal.png",level_size,((w * 6 / 12) -300,(h / 3) - 167),(757,1159,242,485),"normal",True),
-    level_entitys("normal.png",level_size,((w * 6 / 12) -300,(h / 3) - 167),None,None,False),
-    level_entitys("movehard.png",level_size,((w * 9 / 12) -300,(h / 3) - 167),(1237,1639,242,485),"hard",True),
-    level_entitys("hard.png",level_size,((w * 9 / 12) -300,(h / 3) - 167),None,None,False)
+    level_entitys({"acction":True ,"level":"easy" ,"img_name":"moveeasy.png" ,"draw_point":((w * 3 / 12) -300,(h / 3) - 167) ,"hit_box":(277,679,242,485)}),
+    level_entitys({"acction":True ,"level":"normal" ,"img_name":"movenormal.png" ,"draw_point":((w * 6 / 12) -300,(h / 3) - 167) ,"hit_box":(757,1159,242,485)}),
+    level_entitys({"acction":True ,"level":"hard" ,"img_name":"movehard.png" ,"draw_point":((w * 9 / 12) -300,(h / 3) - 167) ,"hit_box":(1237,1639,242,485)}),
+    level_entitys({"acction":False ,"img_name":"easy.png" ,"draw_point":((w * 3 / 12) -300,(h / 3) - 167)}),
+    level_entitys({"acction":False ,"img_name":"normal.png" ,"draw_point":((w * 6 / 12) -300,(h / 3) - 167)}),
+    level_entitys({"acction":False ,"img_name":"hard.png" ,"draw_point":((w * 9 / 12) -300,(h / 3) - 167)})
 ]
 all_entity.append(level_entity_list)
 menu_entity_list.append(level_entity_list)
@@ -589,8 +560,8 @@ menu_entity_list.append(level_entity_list)
 #-----------------------------------------------------------------------
 
 start_button_list = [
-    start_button_entity("start_button.png",button_size,((w / 2) -500,(h * 4 / 5) -278),None,None),
-    start_button_entity("start_button_frame.png",button_size,((w / 2) -500,(h * 4 / 5) -278),(524,1398,734,1006),"play")
+    button_entity({"acction":False ,"img_name":"start_button.png" ,"draw_point":((w / 2) -500,(h * 4 / 5) -278)}),
+    button_entity({"acction":True ,"change_mode":"play" ,"draw_mode":"menu" ,"img_name":"start_button_frame.png" ,"draw_point":((w / 2) -500,(h * 4 / 5) -278) ,"hit_box":(524,1398,734,1006)})
 ]
 all_entity.append(start_button_list)
 menu_entity_list.append(start_button_list)
@@ -598,7 +569,7 @@ menu_entity_list.append(start_button_list)
 #------------------------------------------------------------------------
 
 back_entity_list = [
-    back_entity("level_frame.png",level_frame_size,((w / 2) - 900,(h / 2) - 500))
+    back_entitys({"img_name":"level_frame.png" ,"draw_point":((w / 2) - 900,(h / 2) - 500)})
 ]
 all_entity.append(back_entity_list)
 menu_entity_list.append(back_entity_list)
