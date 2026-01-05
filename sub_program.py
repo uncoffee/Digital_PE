@@ -5,7 +5,7 @@ import hid #pip install hidapi
 import math
 
 #pipいらない
-import numpy
+import numpy as np
 import random
 import sys
 import time
@@ -20,25 +20,51 @@ def image_changer(img_name,size):
     img_data = pygame.transform.scale(img, (img.get_width()*scale, img.get_height()*scale))
     return img_data
 
+class draw_text:
+    def __init__(self,info):
+        self.draw_point = info["draw_point"]
+        self.pallet = info["pallet"]
+        self.font = info["font"]
+        self.color = info["color"]
+        self.Anti_Aliasing = info["Anti_Aliasing"]
+
+    def draw(self,text):
+        text_surface = self.font.render(text, self.Anti_Aliasing, self.color)
+        text_rect = text_surface.get_rect()
+        text_rect.center = (self.draw_point)
+
+        self.pallet.blit(text_surface , text_rect)
+
+    def get_data(self,text):
+        text_surface = self.font.render(text, True, self.color)
+        text_rect = text_surface.get_rect()
+        text_rect.center = (self.draw_point)
+
+        return (text_surface , text_rect)
+    
 class random_choice:
-    def __init__(self , display_info , setting):
-        self.display_info = display_info #辞書型で来ているので注意。
-        self.Setting = setting #辞書型で来ているので注意。
+    def __init__(self , random_point=None):
+        self.random_point = random_point #辞書型で来ているので注意。
         self.choice_log = {"entity" : None ,"width" : None , "height" : None}
         
     def choice(self , entity_list):
-        if type(entity_list) == list:
-            return None
         
-        while not self.choice_log["entity"] == entity:
+        while True:
             entity = random.choice(entity_list)
+            if not self.choice_log["entity"] == entity:
+                break
+
         self.choice_log["entity"] = entity
 
-        if entity.info["random_choice"] == True:
-            while not np.abs(self.choice_log["width"] - self.display_info["width"]) < self.setting["frame_size"]:
-                entity.draw_point["width"] = random.randint(self.display_info["width"])
+        if not self.random_point == None:
+            while True:
+                entity.draw_point["width"] = random.randint(self.random_point["width"])
+                if np.abs(self.choice_log["width"] - self.random_point["width"]) > self.random_point["padding"]:
+                    break
             self.choice_log["width"] = entity.draw_point["width"]
         
-            while not np.abs(self.choice_log["height"] - self.display_info["height"]) < self.setting["frame_size"]:
-                entity.draw_point["height"] = random.randint(self.display_info["height"])
+            while True:
+                entity.draw_point["height"] = random.randint(self.random_point["height"])
+                if np.abs(self.choice_log["height"] - self.random_point["height"]) > self.random_point["padding"]:
+                    break
             self.choice_log["height"] = entity.draw_point["height"]
