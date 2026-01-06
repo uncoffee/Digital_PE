@@ -87,6 +87,22 @@ def player_chenge_point(player):
     else:
         return pygame.mouse.get_pos()
     
+    # left_x = change_x(left_top,left_bottom,player)
+    # right_x = change_x(right_top,right_bottom,player)
+
+    # mouse_x = int(w * 0.8 * (player[0] - left_x) / (right_x - left_x) + w * 0.1)
+
+    # #print(f"横 :{left_x,player[0],right_x, mouse_x}")
+
+    # top_y = change_y(left_top,right_top,player)
+    # bottom_y = change_y(left_bottom,right_bottom,player)
+
+    # mouse_y = int(h * 0.8 * (player[1] -  top_y) / (bottom_y - top_y) + h * 0.1) #多分なんかやらかしてる。ああああああああああああああああああああああああああああああああああああああああ
+
+    # #print(f"縦 :{top_y,player[1],bottom_y, mouse_y}")
+
+    # return mouse_x , mouse_y
+    
 
 
 clock = pygame.time.Clock()
@@ -178,17 +194,13 @@ class player_marker(aruco_entity): #画像データと座標データ分ける�
 
 
 class wii_entity:
-    def __init__(self,img_name,img_size,setvalue):
-        self.img_size = img_size
-        self.img = image_changer(img_name,img_size)
-        #このsetvalueにはwii認識のIDとデータ要求の値をいれる。
-        self.setvalue = setvalue
+    def __init__(self,img_name,img_size,,info):
+        size = 2000
+        self.img = image_changer(info["img_name"],size)
             
-        self.draw_point = 0,0
         self.clear = 0
         self.jump_count = 0
         self.push_count = 0
-        self.hit_box = 0,0,w,h #全画面
         self.choice = True
 
         try:
@@ -208,14 +220,13 @@ class wii_entity:
         self.device = device
  
     def draw(self,mode):
-        self.draw_point = set_img_point(self.draw_point,self.img_size)
 
-        if mode == "set":
-            if self.jump_count >= 0:
-                front_surface.blit(self.img,self.draw_point)
+        # if mode == "set":
+        #     if self.jump_count >= 0:
+        #         front_surface.blit(self.img,self.info["draw_point"])
 
         if mode == "play":
-            if self.choice:
+            if self.choice == True:
                 self.clear += 10
 
             else:
@@ -435,7 +446,7 @@ class result_comment:
 
 def push_checker(cursor,entity):
     #aから始まるものはアンダー（底辺）に当たる座標。tから始まるものはトップ（上底）に当たる座標。
-    a_x , t_x , a_y , t_y = entity.hit_box
+    a_x , t_x , a_y , t_y = entity.info["hit_box"]
     c_x , c_y = cursor
 
     if a_x <= c_x <= t_x and a_y <= c_y <= t_y:
@@ -455,8 +466,6 @@ def set_img_point(draw_point,img_size):
     d_x , d_y = draw_point
     magnification = img_size / 180
     return (int(-90 * magnification + d_x),int(-50 * magnification + d_y))
-
-
 
 def scan_manager(scan_count,mode):
     for j in set_entitys:
@@ -678,7 +687,7 @@ while running:
 
     elif mode == "play":
         #円にふれたら新しく生成するので時間生成はなくなった
-        
+
 
         for i in comment_list:
             i.draw()
