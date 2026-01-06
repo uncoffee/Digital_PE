@@ -9,7 +9,7 @@ import hid #pip install hidapi
 import math
 
 #pipいらない
-from sub_program import image_changer , random_choice , draw_text
+from sub_program import image_changer , random_choice , draw_text , print_check
 import numpy as np
 import random
 import sys
@@ -149,7 +149,7 @@ class player_marker(aruco_entity): #画像データと座標データ分ける�
 
         if mode == "play":
             if self.choice == True:
-                self.clear += 20
+                self.clear += 10
                 
                 if self.clear > 255:
                     self.clear = 255
@@ -159,16 +159,14 @@ class player_marker(aruco_entity): #画像データと座標データ分ける�
                     push_checker(player_chenge_point(self.now_point),self)
 
             else:
-                self.clear -= 40
+                self.clear -= 10
                 if self.clear < 0:
                     self.clear = 0
 
             front_surface.blit(self.img,img_point)
 
-
     def action(self):
         random.choice(comment_list).make(self.draw_point)
-        print(self.draw_point)
         count_result.touch()
         self.choice = False
         random_draw_point.choice(play_entitys)
@@ -218,10 +216,10 @@ class wii_entity:
 
         if mode == "play":
             if self.choice:
-                self.clear += 20
+                self.clear += 10
 
             else:
-                self.clear -= 40
+                self.clear -= 10
 
             if self.clear > 255:
                 self.clear = 255
@@ -505,10 +503,11 @@ def menu_manager(cursor):
 
 #sub_programのクラスをたたく。
 random_choicer = random_choice()
-random_draw_point = random_choice({"padding":100,"width":w,"height":h})
+random_draw_point = random_choice({"padding":100,"near":100,"width":w,"height":h})
 time_drawer = draw_text({"draw_point":(w / 20 * 18,h / 20 * 1),"pallet":screen,"font":pygame.font.Font(None, 100),"color":(255,255,255),"Anti_Aliasing":True})
 result_comment_drawer =  draw_text({"draw_point":(w/2,h/4),"pallet":screen,"font":pygame.font.Font(None,500),"color":(255,255,255),"Anti_Aliasing":True})
 result_score_drawer = draw_text({"draw_point":(w/20*15,h/3*2),"pallet":screen,"font":pygame.font.Font(None,200),"color":(255,255,255),"Anti_Aliasing":True})
+pri = print_check()
 
 #処理で使うためのクラスをまとめたリスト
 set_entitys = [] #mode = "set"の時に使うクラスのリスト
@@ -650,7 +649,6 @@ while running:
     #タイマーを使いまわすためにここに配置。
     count_timer.draw()
 
-
     if mode == "set":
         for e in set_entitys:
             if e.choice == True:
@@ -670,9 +668,9 @@ while running:
                 player.draw(mode)
         
         for i in menu_entitys:
-            i.draw(mode="menu")
+            i.draw(mode)
 
-            if i.info["acction"]:
+            if i.info["acction"] == True:
                 push_checker(player_chenge_point(player.now_point),i)
 
         if mode == "play":#mode が playになって初めの一回のみ宣言する
@@ -680,17 +678,15 @@ while running:
 
     elif mode == "play":
         #円にふれたら新しく生成するので時間生成はなくなった
-        for e in play_entitys:
-            if e.choice == True:
-                e.draw(mode="end")
+        
+
+        for i in comment_list:
+            i.draw()
 
         if scan_count % fps == 0:
             if count_timer.count():
                 mode = "end"
                 count_timer.reset(10)
-
-        for i in comment_list:
-            i.draw()
 
         if mode == "end":#mode が endになって初めの一回のみ宣言する
             random_choicer.choice(result_comments)#お疲れ様の一言。

@@ -42,29 +42,50 @@ class draw_text:
 
         return (text_surface , text_rect)
     
+class print_check():
+    def __init__(self):
+        self.count = 0
+
+    def c(self):
+        self.count += 1
+        print(self.count)
+
+
+    
 class random_choice:
     def __init__(self , random_point=None):
         self.random_point = random_point #辞書型で来ているので注意。
-        self.choice_log = {"entity" : None ,"width" : None , "height" : None}
+        self.new_choice = {"entity":None,"width":0,"hegint":0}
+        if not random_point == None:
+            self.choice_log = {"entity" : None ,"width" : random_point["width"]//2 , "height" : random_point["height"] // 2}#二で割ることで中心近くに出現するところから始まる。
         
     def choice(self , entity_list):
-        
         while True:
-            entity = random.choice(entity_list)
-            if not self.choice_log["entity"] == entity:
+            self.new_choice["entity"] = random.choice(entity_list)
+            if not self.choice_log["entity"] == self.new_choice["entity"]:
                 break
 
-        self.choice_log["entity"] = entity
+        self.choice_log["entity"] = self.new_choice["entity"]
+        self.new_choice["entity"].choice = True
 
-        if not self.random_point == None:
-            while True:
-                entity.draw_point["width"] = random.randint(self.random_point["width"])
-                if np.abs(self.choice_log["width"] - self.random_point["width"]) > self.random_point["padding"]:
-                    break
-            self.choice_log["width"] = entity.draw_point["width"]
+        if self.random_point == None:
+            return
         
-            while True:
-                entity.draw_point["height"] = random.randint(self.random_point["height"])
-                if np.abs(self.choice_log["height"] - self.random_point["height"]) > self.random_point["padding"]:
-                    break
-            self.choice_log["height"] = entity.draw_point["height"]
+        width_max = self.random_point["width"] - self.random_point["padding"]
+        width_min = 0 + self.random_point["padding"]
+        height_max = self.random_point["height"] - self.random_point["padding"]
+        height_min = 0 + self.random_point["padding"]
+
+        while True:
+            self.new_choice["width"] = random.randint(width_min ,  width_max)
+            if np.abs(self.choice_log["width"] - self.random_point["width"]) > self.random_point["near"]:
+                break
+        self.choice_log["width"] = self.new_choice["width"]
+    
+        while True:
+            self.new_choice["height"] = random.randint(height_min , height_max)
+            if np.abs(self.choice_log["height"] - self.random_point["height"]) > self.random_point["near"]:
+                break
+        self.choice_log["height"] = self.new_choice["height"]
+
+        self.new_choice["entity"].draw_point = (self.new_choice["width"] , self.new_choice["height"])
