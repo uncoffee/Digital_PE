@@ -87,21 +87,21 @@ def player_chenge_point(player):
     else:
         return pygame.mouse.get_pos()
     
-    # left_x = change_x(left_top,left_bottom,player)
-    # right_x = change_x(right_top,right_bottom,player)
+    left_x = change_x(left_top,left_bottom,player)
+    right_x = change_x(right_top,right_bottom,player)
 
-    # mouse_x = int(w * 0.8 * (player[0] - left_x) / (right_x - left_x) + w * 0.1)
+    mouse_x = int(w * 0.8 * (player[0] - left_x) / (right_x - left_x) + w * 0.1)
 
-    # #print(f"横 :{left_x,player[0],right_x, mouse_x}")
+    #print(f"横 :{left_x,player[0],right_x, mouse_x}")
 
-    # top_y = change_y(left_top,right_top,player)
-    # bottom_y = change_y(left_bottom,right_bottom,player)
+    top_y = change_y(left_top,right_top,player)
+    bottom_y = change_y(left_bottom,right_bottom,player)
 
-    # mouse_y = int(h * 0.8 * (player[1] -  top_y) / (bottom_y - top_y) + h * 0.1) #多分なんかやらかしてる。ああああああああああああああああああああああああああああああああああああああああ
+    mouse_y = int(h * 0.8 * (player[1] -  top_y) / (bottom_y - top_y) + h * 0.1) #多分なんかやらかしてる。ああああああああああああああああああああああああああああああああああああああああ
 
-    # #print(f"縦 :{top_y,player[1],bottom_y, mouse_y}")
+    #print(f"縦 :{top_y,player[1],bottom_y, mouse_y}")
 
-    # return mouse_x , mouse_y
+    return mouse_x , mouse_y
     
 
 
@@ -143,10 +143,14 @@ class player_marker(aruco_entity): #画像データと座標データ分ける�
     def __init__(self,info):
         self.img_size = 180
         self.draw_point = (0,0)
-        self.img = image_changer(info["ing_name"],self.img_size)
+        self.img = image_changer(info["img_name"],self.img_size)
         self.hit_box = 0,0,0,0
         self.choice = False #画面に表示されるかどうか
         self.clear = 0 #drawした時の透明度(アルファ値)
+        self.guide_marker = False #Trueならメニューの時に追従してくれる。
+
+        if info["img_name"] == "red_feet.png":
+            self.guide_marker = True
 
         super().__init__(info["marker_id"],info["set_point"])
 
@@ -160,12 +164,12 @@ class player_marker(aruco_entity): #画像データと座標データ分ける�
                 back_surface.blit(self.img,self.set_point)
 
         if mode == "menu":
-            if self.marker_id == 6:#id6は赤足
+            if self.guide_marker == True:
                 pygame.draw.circle(front_surface, (255,255,255),player_chenge_point(self.now_point), 30)
 
         if mode == "play":
             if self.choice == True:
-                self.clear += 10
+                self.clear += 20
                 
                 if self.clear > 255:
                     self.clear = 255
@@ -175,7 +179,7 @@ class player_marker(aruco_entity): #画像データと座標データ分ける�
                     push_checker(player_chenge_point(self.now_point),self)
 
             else:
-                self.clear -= 10
+                self.clear -= 30
                 if self.clear < 0:
                     self.clear = 0
 
@@ -184,7 +188,7 @@ class player_marker(aruco_entity): #画像データと座標データ分ける�
     def action(self):
         random.choice(comment_list).make(self.draw_point)
         count_result.touch()
-        self.choice = False
+        self.choice = Falsel
         random_draw_point.choice(play_entitys)
         #音を出す。
 
@@ -193,33 +197,37 @@ class player_marker(aruco_entity): #画像データと座標データ分ける�
         print("")
 
 
-class wii_entity:
-    def __init__(self,img_name,img_size,,info):
+class jump_entity:#今のところwiiは一台のみ使用するため、classの設計も__init__を複数回たたかれることを想定していない。
+    def __init__(self,info):
+        #画像の大きさ
         size = 2000
+        #任天堂とwiiの固有ID
+        wii_vid = 0x057e
+        wii_pid = 0x0306
+
+        self.info = info
         self.img = image_changer(info["img_name"],size)
-            
+        self.choice_time = 0
         self.clear = 0
-        self.jump_count = 0
-        self.push_count = 0
-        self.choice = True
+        self.choice = False
 
         try:
-            devices = hid.enumerate(0x057e,0x0306) #このなぞのintはデバイス(wii)識別IDです。
+            devices = hid.enumerate(wii_vid,wii_pid) #このなぞのintはデバイス(wii)識別IDです。
             if devices:
                 path = devices[0]['path']
                 device = hid.device()
                 device.open_path(path)
+                self.device = device
 
             else:
                 print("wiiが見つからないよ")
-                #ダメだったらエラー吐かせて落とすなり専用画面に誘導なりしたい。
         
         except:
             print("デバイスがみつからねえ")
 
-        self.device = device
- 
     def draw(self,mode):
+        #重力加速度の値を入手するための値と、出力形式。
+        report_key = 0x31
 
         # if mode == "set":
         #     if self.jump_count >= 0:
@@ -237,12 +245,12 @@ class wii_entity:
                 
                 report = self.device.read(22) 
                     
-                    # reportのなかにあるデータが加速度に関するものかどうかを確かめてる
-                if not report[0] == REPORT_MODE_ACCEL or len(report) >= 6:
+                # reportのなかにあるデータが加速度に関するものかどうかを確かめてる
+                if not report[0] == report_key or len(report) >= 6:
 
                     raw_y = report[4] << 2 #通常の値が高いのに下位2ビット()気にしたところで変わらんので省略　※詳しくはwii.pyのcalculate_accelerometer関数を参照
                     
-                    if raw_y >= 600:
+                    if raw_y >= 600:#ここでジャンプ後の処理をする。
                         self.device.set_nonblocking(False)
                         self.choice = False
                         random_draw_point.choice(play_entitys)
@@ -542,10 +550,10 @@ set_entitys += edge_marker_list
 #------------------------------------------------------------------------
 
 player_marker_list = [
-    player_marker({"marker_id":5 ,"acction":True ,"ing_name":"blue_feet.png" ,"set_point":[(w * 5 // 9) - 90,(h * 1 // 9) - 50]}),
-    player_marker({"marker_id":6 ,"acction":True ,"ing_name":"red_feet.png" ,"set_point":[(w * 5 // 9) - 90,(h * 2 // 9) - 50]}),
-    player_marker({"marker_id":7 ,"acction":True ,"ing_name":"blue_hand.png" ,"set_point":[(w * 4 // 9) - 90,(h * 1 // 9) - 50]}),
-    player_marker({"marker_id":8 ,"acction":True ,"ing_name":"red_hand.png" ,"set_point":[(w * 4 // 9) - 90,(h * 2 // 9) - 50]})
+    player_marker({"marker_id":5 ,"acction":True ,"img_name":"blue_feet.png" ,"set_point":[(w * 5 // 9) - 90,(h * 1 // 9) - 50]}),
+    player_marker({"marker_id":6 ,"acction":True ,"img_name":"red_feet.png" ,"set_point":[(w * 5 // 9) - 90,(h * 2 // 9) - 50]}),
+    player_marker({"marker_id":7 ,"acction":True ,"img_name":"blue_hand.png" ,"set_point":[(w * 4 // 9) - 90,(h * 1 // 9) - 50]}),
+    player_marker({"marker_id":8 ,"acction":True ,"img_name":"red_hand.png" ,"set_point":[(w * 4 // 9) - 90,(h * 2 // 9) - 50]})
 ]
 set_entitys += player_marker_list
 play_entitys += player_marker_list
@@ -591,16 +599,8 @@ result_comments = [
 #------------------------------------------------------------------------
 
 if use_wii == True:
-    # wiiリモコンの認識番号(ID)を設定する
-    TARGET_VID = 0x057e
-    TARGET_PID = 0x0306
-
-    # Wiiリモコンから欲しいデータを要求するための値
-    REPORT_MODE_ACCEL = 0x31
-    HID_OUTPUT_REPORT_ID = 0x12
-
     jump_entity_list = [#ingsizeは後で要調整　イメージはgoogle スライド参照
-        wii_entity("jump.png",1000,[(TARGET_VID,TARGET_PID),[REPORT_MODE_ACCEL,HID_OUTPUT_REPORT_ID]])
+       jump_entity({"acction":True ,"img_name":"jump.png" ,"draw_point":(0,0)})
     ]
 
     play_entitys.append(jump_entity_list)
@@ -687,8 +687,6 @@ while running:
 
     elif mode == "play":
         #円にふれたら新しく生成するので時間生成はなくなった
-
-
         for i in comment_list:
             i.draw()
 
