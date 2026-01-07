@@ -73,6 +73,7 @@ while True:
 
         # print(raw_x,raw_y,raw_z)
         
+        print(raw_y)
         if raw_y >= 600:
             a += 1
             print(f"とんでるらしい{a}")

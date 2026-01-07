@@ -24,23 +24,20 @@ screen = pygame.display.set_mode((w, h),pygame.FULLSCREEN  | pygame.SCALED | pyg
 #変更可
 
 #一秒間に画面更新をする回数
-fps = 100 
+fps = 30
 
 split_varue = 20 #円が出てくるマス目の細かさ
 
-use_aruco = False #True:設定したarucoマーカを追尾　False:マウスカードルを追尾
-
-use_wii = False #True:wiiを使った重力加速度を使った機能を開放　False:追加機能なしで続行
-
 comment_size = 200 #コメントのサイズを指定する
 
-play_time = 60
+play_time = 300
 
 #変更不可
 game_point = 0
 
 scan_count = 0
 
+mode = "set"
 
 #surfaceの設定
 difficulty_level = "easy"
@@ -74,15 +71,15 @@ def change_y(A, B, now):
 def player_chenge_point(player):
     if use_aruco:
         for i in edge_marker_list:
-            if i.name == "left_top":
+            if i.info["ing_name"] == "left_top.png":
                 left_top = i.now_point
-            if i.name == "right_top":
+            if i.info["ing_name"] == "right_top.png":
                 right_top = i.now_point
-            if i.name == "right_buttom":
+            if i.info["ing_name"] == "right_buttom.png":
                 right_bottom = i.now_point
-            if i.name == "left_buttom":
+            if i.info["ing_name"] == "left_buttom.png":
                 left_bottom = i.now_point
-        # print(f"四隅の座標 :{left_top,right_top,right_bottom,left_bottom}")
+        # print(f"left_top: {left_top} right_top: {right_top} right_bottom: {right_bottom} left_bottom: {left_bottom}")
 
     else:
         return pygame.mouse.get_pos()
@@ -91,7 +88,6 @@ def player_chenge_point(player):
     right_x = change_x(right_top,right_bottom,player)
 
     mouse_x = int(w * 0.8 * (player[0] - left_x) / (right_x - left_x) + w * 0.1)
-
     #print(f"横 :{left_x,player[0],right_x, mouse_x}")
 
     top_y = change_y(left_top,right_top,player)
@@ -115,8 +111,6 @@ class aruco_entity:
         self.now_point = (0,0) #プレイヤーの位置を特定するのに必要な値
 
     def count_plus1(self):#カメラに映ってからの時間を計測
-        global fps
-        global circle_time
         self.count += 1
     
     def set_now_point(self, now_point):#arucoマーカーの移動に対応して座標の再設定を行う.
@@ -134,17 +128,19 @@ class edge_marker(aruco_entity):
 
     def draw(self, mode):
         if mode == "set":
-            if not self.count < 5:
-                pygame.draw.circle(back_surface, (255,255,255),(self.set_point), 30)
-            else:
+            if self.count < 5:
                 pygame.draw.circle(back_surface, (255,0,0),(self.set_point), 30)
+                
+            else:
+                pygame.draw.circle(back_surface, (255,255,255),(self.set_point), 30)
+                
 
 class player_marker(aruco_entity): #画像データと座標データ分ける？
     def __init__(self,info):
+        self.info = info
         self.img_size = 180
         self.draw_point = (0,0)
         self.img = image_changer(info["img_name"],self.img_size)
-        self.hit_box = 0,0,0,0
         self.choice = False #画面に表示されるかどうか
         self.clear = 0 #drawした時の透明度(アルファ値)
         self.guide_marker = False #Trueならメニューの時に追従してくれる。
@@ -161,20 +157,22 @@ class player_marker(aruco_entity): #画像データと座標データ分ける�
 
         if mode == "set":
             if self.count < 5:
-                back_surface.blit(self.img,self.set_point)
+                front_surface.blit(self.img,self.set_point)
 
         if mode == "menu":
             if self.guide_marker == True:
+                print(player_chenge_point(self.now_point))
                 pygame.draw.circle(front_surface, (255,255,255),player_chenge_point(self.now_point), 30)
 
         if mode == "play":
             if self.choice == True:
                 self.clear += 20
+                print(self.info["img_name"])
                 
                 if self.clear > 255:
                     self.clear = 255
                     x , y = self.draw_point
-                    self.hit_box = x-45, x+45,y-45, y+45#ここの値を後で変える。
+                    self.info["hit_box"] = x-45, x+45,y-45, y+45#ここの値を後で変える。 ここは画像を描画する前に無理やり切片を使って、中心にそろえてそこからの座標でHIT判定の計算をしている。できるなら、描画座標からみてどのくらい続いているかで判定をしたい。時間がない。
                 if self.clear == 255:                 
                     push_checker(player_chenge_point(self.now_point),self)
 
@@ -188,13 +186,15 @@ class player_marker(aruco_entity): #画像データと座標データ分ける�
     def action(self):
         random.choice(comment_list).make(self.draw_point)
         count_result.touch()
-        self.choice = Falsel
+        self.choice = False
         random_draw_point.choice(play_entitys)
         #音を出す。
 
     def back_action(self):
         #文字で動きを誘導かな。(文字は写真じゃないほうがよさそう)
         print("")
+        
+        
 
 
 class jump_entity:#今のところwiiは一台のみ使用するため、classの設計も__init__を複数回たたかれることを想定していない。
@@ -210,6 +210,7 @@ class jump_entity:#今のところwiiは一台のみ使用するため、class�
         self.choice_time = 0
         self.clear = 0
         self.choice = False
+        self.use_wii = False
 
         try:
             devices = hid.enumerate(wii_vid,wii_pid) #このなぞのintはデバイス(wii)識別IDです。
@@ -218,6 +219,7 @@ class jump_entity:#今のところwiiは一台のみ使用するため、class�
                 device = hid.device()
                 device.open_path(path)
                 self.device = device
+                self.use_wii = True
 
             else:
                 print("wiiが見つからないよ")
@@ -229,13 +231,12 @@ class jump_entity:#今のところwiiは一台のみ使用するため、class�
         #重力加速度の値を入手するための値と、出力形式。
         report_key = 0x31
 
-        # if mode == "set":
-        #     if self.jump_count >= 0:
-        #         front_surface.blit(self.img,self.info["draw_point"])
-
         if mode == "play":
+            self.img.set_alpha(self.clear)
+            front_surface.blit(self.img,self.info["draw_point"])
             if self.choice == True:
                 self.clear += 10
+                print(self.info["img_name"])
 
             else:
                 self.clear -= 10
@@ -282,13 +283,14 @@ class coment_text:
         self.draw_point = draw_point
         self.clear = self.clear_range["max"]
 
-    def draw(self):
-        self.img.set_alpha(self.clear)
-        front_surface.blit(self.img,self.draw_point)
+    def draw(self,mode):
+        if mode == "play":
+            self.img.set_alpha(self.clear)
+            front_surface.blit(self.img,self.draw_point)
 
-        self.clear -= 1
-        if self.clear < self.clear_range["min"]:
-            self.clear = self.clear_range["min"]
+            self.clear -= 10
+            if self.clear < self.clear_range["min"]:
+                self.clear = self.clear_range["min"]
 
 def count_checker():
     for i in set_entitys:
@@ -378,7 +380,7 @@ class button_entity:
     def action(self):
         global difficulty_level
         if difficulty_level != None:
-            self.clear += 5
+            self.clear += 30
             self.img
             if self.clear > self.clear_range["max"]:
                 self.clear = 0 #またメニューに戻ってきても押せるようにリセットする。
@@ -398,7 +400,7 @@ class button_entity:
                 count_timer.reset(play_time) #play_time はモードplayの持続時間
         
     def back_action(self):
-        self.clear -= 20
+        self.clear -= 60
         if self.clear < self.clear_range["min"]:
             self.lear = self.clear_range["min"]
 
@@ -500,11 +502,9 @@ def scan_manager(scan_count,mode):
                     ave = int((C1[0] + C2[0] + C3[0] + C4[0]) / 4) , int((C1[1] + C2 [1] + C3[1] + C4[1]) / 4)
 
                     for j in set_entitys:
-                        if j.marker_id == int(ID):
+                        if j.info["marker_id"] == int(ID):
+                                j.count = 0
                                 j.set_now_point(ave)
-
-
-
 
 def menu_manager(cursor):
     for i in menu_entitys:
@@ -536,6 +536,7 @@ play_entitys = [] #mode = "play"の時に使うクラスのリスト
 comment_list = [
     coment_text({"img_name":"good.png" ,"size":400}),
 ]
+play_entitys += comment_list
 
 #------------------------------------------------------------------------
 
@@ -598,12 +599,10 @@ result_comments = [
 
 #------------------------------------------------------------------------
 
-if use_wii == True:
-    jump_entity_list = [#ingsizeは後で要調整　イメージはgoogle スライド参照
-       jump_entity({"acction":True ,"img_name":"jump.png" ,"draw_point":(0,0)})
-    ]
-
-    play_entitys.append(jump_entity_list)
+wii = jump_entity({"acction":True ,"img_name":"jump.png" ,"draw_point":(0,0)})
+if wii.use_wii == True:
+    play_entitys.append(wii)
+    print("wiiを使います。")
 
 #------------------------------------------------------------------------
 
@@ -617,7 +616,7 @@ aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_100)
 aruco_params = cv2.aruco.DetectorParameters()
 aruco_detector = cv2.aruco.ArucoDetector(aruco_dict, aruco_params)
 
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(0)#ノーパソの標準カメラは1くそやすいカメラは2(環境により変動します)
 ret, frame = cap.read()
 if ret != True: #while文からif文に変えた。
     use_aruco = False
@@ -660,15 +659,14 @@ while running:
 
     if mode == "set":
         for e in set_entitys:
-            if e.choice == True:
-                e.draw(mode="end")
+            e.draw(mode)
 
         if count_checker():
             mode = "menu"
 
     elif mode == "menu":
         for e in menu_entitys:
-            e.draw(mode="end")
+            e.draw(mode)
 
         player = (0, 0)
         for i in player_marker_list:
@@ -687,8 +685,8 @@ while running:
 
     elif mode == "play":
         #円にふれたら新しく生成するので時間生成はなくなった
-        for i in comment_list:
-            i.draw()
+        for i in play_entitys:
+            i.draw(mode)
 
         if scan_count % fps == 0:
             if count_timer.count():

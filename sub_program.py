@@ -62,6 +62,8 @@ class random_choice:
     def choice(self , entity_list):
         while True:
             self.new_choice["entity"] = random.choice(entity_list)
+            if self.random_point == None:
+                break
             if not self.choice_log["entity"] == self.new_choice["entity"]:
                 break
 
