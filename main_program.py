@@ -24,13 +24,13 @@ screen = pygame.display.set_mode((w, h),pygame.FULLSCREEN  | pygame.SCALED | pyg
 #変更可
 
 #一秒間に画面更新をする回数
-fps = 30
+fps = 10
 
 split_varue = 20 #円が出てくるマス目の細かさ
 
 comment_size = 200 #コメントのサイズを指定する
 
-play_time = 1
+play_time = 10
 
 #変更不可
 game_point = 0
@@ -231,44 +231,49 @@ class jump_entity:#今のところwiiは一台のみ使用するため、class�
         report_key = 0x31
 
         if mode == "play":
+            self.device.set_nonblocking(True)
             self.img.set_alpha(self.clear)
             front_surface.blit(self.img,self.info["draw_point"])
+
+            report = self.device.read(22)
+
+        if not report:
+            return 
+            
+        # reportのなかにあるデータが加速度に関するものかどうかを確かめてる
+        if not report[0] == report_key or len(report) >= 6:
+            #通常の値が高いのに下位2ビット()気にしたところで変わらんので省略　※詳しくはwii.pyのcalculate_accelerometer関数を参照
+            raw_x = report[3] << 2
+            raw_y = report[4] << 2
+            raw_z = report[5] << 2
+
+            ave = int(raw_x + raw_y + raw_z) // 3
+            print(ave)
+            print(f"raw_x{raw_x} raw_y{raw_y} raw_z{raw_z}")
+            point = abs(raw_x - ave) + abs(raw_y - ave) + abs(raw_z - ave)
+
+            count_result.exercise_move(point)
+            
+
             if self.choice == True:
                 self.clear += 10
-                print(self.info["img_name"])
-
+                
             else:
                 self.clear -= 10
 
             if self.clear > 255:
                 self.clear = 255
-                
-                report = self.device.read(22) 
-                    
-                # reportのなかにあるデータが加速度に関するものかどうかを確かめてる
-                if not report[0] == report_key or len(report) >= 6:
-                    #通常の値が高いのに下位2ビット()気にしたところで変わらんので省略　※詳しくはwii.pyのcalculate_accelerometer関数を参照
-                    raw_x = report[3] << 2
-                    raw_y = report[4] << 2
-                    raw_z = report[5] << 2
 
-                    print(f"raw_x{raw_x} raw_y{raw_y} raw_z{raw_z}")
-
-                    print(int(raw_x + raw_y + raw_z) // 3)
-
-                    if raw_y >= 600:#ここでジャンプ後の処理をする。
-                        self.device.set_nonblocking(False)
-                        self.choice = False
-                        random_draw_point.choice(play_entitys)
+                if raw_y >= 600:#ここでジャンプ後の処理をする。
+                    self.choice = False
+                    random_draw_point.choice(play_entitys)
 
             elif self.clear < 0:
                 self.clear = 0
 
-            else:
-                if self.choice:
-                    self.device.set_nonblocking(True)
-
-        
+            if mode == "end":
+                self.device.set_nonblocking(False)
+                    
 def img_range_changer(size):
     #25この値は 666px * 375pxの画像をpygameに落とした後、描画サイズ1に対して、200分の1px画素数の値（これは半径である。）※円の画像基準
     size * 25
@@ -455,7 +460,7 @@ class play_result:
         co = self.combo / 10
         self.score = self.score * co
 
-        result_score_drawer.draw(f"touch:{self.score}\nexercise:{self.exercise}")
+        result_score_drawer.draw(f"touch:{self.score}")\nexercise:{self.exercise}
 
 class result_comment:
     def __init__(self,info):
@@ -523,7 +528,9 @@ random_choicer = random_choice()
 random_draw_point = random_choice({"padding":100,"near":100,"width":w,"height":h})
 time_drawer = draw_text({"draw_point":(w / 20 * 18,h / 20 * 1),"pallet":screen,"font":pygame.font.Font(None, 100),"color":(255,255,255),"Anti_Aliasing":True})
 result_comment_drawer =  draw_text({"draw_point":(w/2,h/4),"pallet":screen,"font":pygame.font.Font(None,500),"color":(255,255,255),"Anti_Aliasing":True})
-result_score_drawer = draw_text({"draw_point":(w/20*15,h/3*2),"pallet":screen,"font":pygame.font.Font(None,200),"color":(255,255,255),"Anti_Aliasing":True})
+result_touch_drawer = draw_text({"draw_point":(w//2 ,h/3*2),"pallet":screen,"font":pygame.font.Font(None,200),"color":(255,255,255),"Anti_Aliasing":True})
+result_exercise_drawer = draw_text({"draw_point":(0,h/5*4),"pallet":screen,"font":pygame.font.Font(None,200),"color":(255,255,255),"Anti_Aliasing":True})
+
 pri = print_check()
 
 #時間計測+表示のクラス
@@ -617,7 +624,7 @@ if wii.use_wii == True:
 
 #------------------------------------------------------------------------
 
-cap = cv2.VideoCapture(0)#ノーパソの標準カメラは1くそやすいカメラは2(環境により変動します)
+cap = cv2.VideoCapture(1)#ノーパソの標準カメラは1くそやすいカメラは2(環境により変動します)
 ret, frame = cap.read()
 if ret != True: #while文からif文に変えた。
     use_aruco = False
@@ -709,7 +716,9 @@ while running:
                 mode = "menu" 
         
         if mode == "menu":#mode が menuになって初めの一回のみ宣言する
-            fps = 30#デフォルトのfps 30
+            fps = 10#デフォルトのfps 30
+            count_result.reset()
+
 
     screen.blit(back_surface,(0,0))
 

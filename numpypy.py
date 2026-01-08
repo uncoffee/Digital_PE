@@ -65,6 +65,9 @@ a = 0
 while True:
     report = device.read(22) 
 
+    if not report:
+        break
+
     if not report[0] == REPORT_MODE_ACCEL or len(report) >= 6:
 
         raw_x = report[3] << 2 #通常の値が高いのに下位2ビット()気にしたところで変わらんので省略　※詳しくはwii.pyのcalculate_accelerometer関数を参照
