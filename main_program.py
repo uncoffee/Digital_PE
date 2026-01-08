@@ -30,7 +30,7 @@ split_varue = 20 #円が出てくるマス目の細かさ
 
 comment_size = 200 #コメントのサイズを指定する
 
-play_time = 300
+play_time = 1
 
 #変更不可
 game_point = 0
@@ -161,7 +161,6 @@ class player_marker(aruco_entity): #画像データと座標データ分ける�
 
         if mode == "menu":
             if self.guide_marker == True:
-                print(player_chenge_point(self.now_point))
                 pygame.draw.circle(front_surface, (255,255,255),player_chenge_point(self.now_point), 30)
 
         if mode == "play":
@@ -248,9 +247,15 @@ class jump_entity:#今のところwiiは一台のみ使用するため、class�
                     
                 # reportのなかにあるデータが加速度に関するものかどうかを確かめてる
                 if not report[0] == report_key or len(report) >= 6:
+                    #通常の値が高いのに下位2ビット()気にしたところで変わらんので省略　※詳しくはwii.pyのcalculate_accelerometer関数を参照
+                    raw_x = report[3] << 2
+                    raw_y = report[4] << 2
+                    raw_z = report[5] << 2
 
-                    raw_y = report[4] << 2 #通常の値が高いのに下位2ビット()気にしたところで変わらんので省略　※詳しくはwii.pyのcalculate_accelerometer関数を参照
-                    
+                    print(f"raw_x{raw_x} raw_y{raw_y} raw_z{raw_z}")
+
+                    print(int(raw_x + raw_y + raw_z) // 3)
+
                     if raw_y >= 600:#ここでジャンプ後の処理をする。
                         self.device.set_nonblocking(False)
                         self.choice = False
@@ -381,7 +386,6 @@ class button_entity:
         global difficulty_level
         if difficulty_level != None:
             self.clear += 30
-            self.img
             if self.clear > self.clear_range["max"]:
                 self.clear = 0 #またメニューに戻ってきても押せるようにリセットする。
                 global mode
@@ -402,7 +406,7 @@ class button_entity:
     def back_action(self):
         self.clear -= 60
         if self.clear < self.clear_range["min"]:
-            self.lear = self.clear_range["min"]
+            self.clear = self.clear_range["min"]
 
 class counter:
     def __init__(self):
@@ -430,6 +434,7 @@ class play_result:
         self.get_touch = 0
         self.miss_touch = 0
         self.score = 0
+        self.exercise = 0
 
     def touch(self):
         self.get_touch += 100
@@ -439,11 +444,18 @@ class play_result:
         self.score += 100
         self.combo += 1
 
+    def exercise_move(self,value):
+        self.exercise += value
+
+    def reset(self):
+        self.score = 0
+        self.exercise = 0
+
     def draw(self):
         co = self.combo / 10
-        score = self.score * co
+        self.score = self.score * co
 
-        result_score_drawer.draw(f"がんばりぽいんと:{score}")
+        result_score_drawer.draw(f"touch:{self.score}\nexercise:{self.exercise}")
 
 class result_comment:
     def __init__(self,info):
@@ -506,18 +518,6 @@ def scan_manager(scan_count,mode):
                                 j.count = 0
                                 j.set_now_point(ave)
 
-def menu_manager(cursor):
-    for i in menu_entitys:
-        draw_x , draw_y = i.draw_point
-        i.img.set_alpha(i.now_clear)
-
-        if i.move:
-            push_checker(cursor,i)
-            middle_surface.blit(i.img, (draw_x , draw_y))
-
-        else:
-            back_surface.blit(i.img, (draw_x , draw_y))
-
 #sub_programのクラスをたたく。
 random_choicer = random_choice()
 random_draw_point = random_choice({"padding":100,"near":100,"width":w,"height":h})
@@ -525,6 +525,17 @@ time_drawer = draw_text({"draw_point":(w / 20 * 18,h / 20 * 1),"pallet":screen,"
 result_comment_drawer =  draw_text({"draw_point":(w/2,h/4),"pallet":screen,"font":pygame.font.Font(None,500),"color":(255,255,255),"Anti_Aliasing":True})
 result_score_drawer = draw_text({"draw_point":(w/20*15,h/3*2),"pallet":screen,"font":pygame.font.Font(None,200),"color":(255,255,255),"Anti_Aliasing":True})
 pri = print_check()
+
+#時間計測+表示のクラス
+count_timer = counter()
+
+#運動スコアの表示
+count_result = play_result()
+
+#arucoマーカの指定
+aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_100)
+aruco_params = cv2.aruco.DetectorParameters()
+aruco_detector = cv2.aruco.ArucoDetector(aruco_dict, aruco_params)
 
 #処理で使うためのクラスをまとめたリスト
 set_entitys = [] #mode = "set"の時に使うクラスのリスト
@@ -605,16 +616,6 @@ if wii.use_wii == True:
     print("wiiを使います。")
 
 #------------------------------------------------------------------------
-
-count_timer = counter()
-
-
-count_result = play_result()
-
-
-aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_100)
-aruco_params = cv2.aruco.DetectorParameters()
-aruco_detector = cv2.aruco.ArucoDetector(aruco_dict, aruco_params)
 
 cap = cv2.VideoCapture(0)#ノーパソの標準カメラは1くそやすいカメラは2(環境により変動します)
 ret, frame = cap.read()
@@ -697,6 +698,9 @@ while running:
             random_choicer.choice(result_comments)#お疲れ様の一言。
             fps = 1#ラグ回避のためにfpsを一時的に下げる
 
+            for i in play_entitys:
+                i.choice = False
+
     elif mode == "end":
 
         count_result.draw()
@@ -705,7 +709,7 @@ while running:
                 mode = "menu" 
         
         if mode == "menu":#mode が menuになって初めの一回のみ宣言する
-            fps = 100#デフォルトのfps 100
+            fps = 30#デフォルトのfps 30
 
     screen.blit(back_surface,(0,0))
 

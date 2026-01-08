@@ -50,8 +50,6 @@ class print_check():
         self.count += 1
         print(self.count)
 
-
-    
 class random_choice:
     def __init__(self , random_point=None):
         self.random_point = random_point #辞書型で来ているので注意。
@@ -64,11 +62,11 @@ class random_choice:
             self.new_choice["entity"] = random.choice(entity_list)
             if self.random_point == None:
                 break
-            if not self.choice_log["entity"] == self.new_choice["entity"]:
-                break
 
-        self.choice_log["entity"] = self.new_choice["entity"]
-        self.new_choice["entity"].choice = True
+            if not self.choice_log["entity"] == self.new_choice["entity"]:
+                self.choice_log["entity"] = self.new_choice["entity"]
+                self.new_choice["entity"].choice = True
+                break
 
         if self.random_point == None:
             return
