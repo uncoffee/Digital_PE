@@ -50,7 +50,7 @@ split_varue = 20 #円が出てくるマス目の細かさ
 
 comment_size = 200 #コメントのサイズを指定する
 
-play_time = 300
+play_time = 10
 
 #変更不可
 game_point = 0
@@ -656,7 +656,7 @@ if wii.use_wii == True:
 
 #------------------------------------------------------------------------
 
-cap = cv2.VideoCapture(1)#ノーパソの標準カメラは1くそやすいカメラは2(環境により変動します)
+cap = cv2.VideoCapture(0)#ノーパソの標準カメラは1くそやすいカメラは2(環境により変動します)
 ret, frame = cap.read()
 if ret != True: #while文からif文に変えた。
     use_aruco = False
