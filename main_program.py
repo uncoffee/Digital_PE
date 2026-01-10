@@ -42,13 +42,15 @@ screen = pygame.display.set_mode((w, h),pygame.FULLSCREEN  | pygame.SCALED | pyg
 #変更可
 
 #一秒間に画面更新をする回数
-fps = 10
+defo_fps = 30
+fps = defo_fps
+
 
 split_varue = 20 #円が出てくるマス目の細かさ
 
 comment_size = 200 #コメントのサイズを指定する
 
-play_time = 10
+play_time = 300
 
 #変更不可
 game_point = 0
@@ -116,8 +118,6 @@ def player_chenge_point(player):
     #print(f"縦 :{top_y,player[1],bottom_y, mouse_y}")
 
     return mouse_x , mouse_y
-    
-
 
 clock = pygame.time.Clock()
 
@@ -184,7 +184,6 @@ class player_marker(aruco_entity): #画像データと座標データ分ける�
         if mode == "play":
             if self.choice == True:
                 self.clear += 20
-                print(self.info["img_name"])
                 
                 if self.clear > 255:
                     self.clear = 255
@@ -201,9 +200,9 @@ class player_marker(aruco_entity): #画像データと座標データ分ける�
             front_surface.blit(self.img,img_point)
 
     def action(self):
+        self.choice = False
         random.choice(comment_list).make(self.draw_point)
         count_result.touch()
-        self.choice = False
         random_draw_point.choice(play_entitys)
         #音を出す。
 
@@ -316,7 +315,7 @@ class coment_text:
             self.img.set_alpha(self.clear)
             front_surface.blit(self.img,self.draw_point)
 
-            self.clear -= 10
+            self.clear -= 30
             if self.clear < self.clear_range["min"]:
                 self.clear = self.clear_range["min"]
 
@@ -453,32 +452,25 @@ class counter:
         
 class play_result:
     def __init__(self):
-        self.combo = 0
-        self.get_touch = 0
-        self.miss_touch = 0
-        self.score = 0
+        self.touch_count = 0
         self.exercise = 0
 
     def touch(self):
-        self.get_touch += 100
-        self.combo += 1
+        self.touch_count += 1
 
     def jump(self):
-        self.score += 100
-        self.combo += 1
+        self.touch_count += 1
 
     def exercise_move(self,value):
         self.exercise += value
 
     def reset(self):
-        self.score = 0
+        self.touch_count = 0
         self.exercise = 0
 
     def draw(self):
-        co = self.combo / 10
-        self.score = self.score * co
-
-        result_score_drawer.draw(f"touch:{self.score}")\nexercise:{self.exercise}
+        result_touch_drawer.draw(str(self.touch_count))
+        result_exercise_drawer.draw(str(self.exercise))
 
 class result_comment:
     def __init__(self,info):
@@ -488,6 +480,20 @@ class result_comment:
     def draw(self):
         if self.choice == True:
             front_surface.blit(self.text_surface , self.text_rect)
+
+class score_image:
+    def __init__(self,info):
+        size = 550
+        self.img = image_changer(info["img_name"],size)
+        self.info = info
+        self.clear = 0
+
+    def draw(self , mode):
+        if mode == "end":
+            self.img.set_alpha(self.clear)
+            back_surface.blit(self.img, self.info["draw_point"])
+
+
 
 def push_checker(cursor,entity):
     #aから始まるものはアンダー（底辺）に当たる座標。tから始まるものはトップ（上底）に当たる座標。
@@ -546,8 +552,8 @@ random_choicer = random_choice()
 random_draw_point = random_choice({"padding":100,"near":100,"width":w,"height":h})
 time_drawer = draw_text({"draw_point":(w / 20 * 18,h / 20 * 1),"pallet":screen,"font":pygame.font.Font(None, 100),"color":(255,255,255),"Anti_Aliasing":True})
 result_comment_drawer =  draw_text({"draw_point":(w/2,h/4),"pallet":screen,"font":pygame.font.Font(None,500),"color":(255,255,255),"Anti_Aliasing":True})
-result_touch_drawer = draw_text({"draw_point":(w//2 ,h/3*2),"pallet":screen,"font":pygame.font.Font(None,200),"color":(255,255,255),"Anti_Aliasing":True})
-result_exercise_drawer = draw_text({"draw_point":(0,h/5*4),"pallet":screen,"font":pygame.font.Font(None,200),"color":(255,255,255),"Anti_Aliasing":True})
+result_touch_drawer = draw_text({"draw_point":(w/5*3 ,h/3*2),"pallet":screen,"font":pygame.font.Font(None,200),"color":(255,255,255),"Anti_Aliasing":True})
+result_exercise_drawer = draw_text({"draw_point":(w/5*3,h/5*4),"pallet":screen,"font":pygame.font.Font(None,200),"color":(255,255,255),"Anti_Aliasing":True})
 
 pri = print_check()
 
@@ -566,13 +572,13 @@ aruco_detector = cv2.aruco.ArucoDetector(aruco_dict, aruco_params)
 set_entitys = [] #mode = "set"の時に使うクラスのリスト
 menu_entitys = []#mode = "menu"の時に使うクラスのリスト
 play_entitys = [] #mode = "play"の時に使うクラスのリスト
-
+end_entitys = [] #mode = "end"の時に使うクラスのリスト
+ 
 #------------------------------------------------------------------------
 
 comment_list = [
     coment_text({"img_name":"good.png" ,"size":400}),
 ]
-play_entitys += comment_list
 
 #------------------------------------------------------------------------
 
@@ -633,6 +639,14 @@ result_comments = [
     result_comment({"comment":"grate"})
 ]
 
+#------------------------------------------------------------------------
+
+end_image = [
+    score_image({"img_name":"touch_score.png","draw_point":(w/5,h/2)}),
+    score_image({"img_name":"exercise_score.png","draw_point":(w/5,h/30*19)}),
+]
+
+end_entitys += end_image
 #------------------------------------------------------------------------
 
 wii = jump_entity({"acction":True ,"img_name":"jump.png" ,"draw_point":(0,0)})
@@ -714,6 +728,9 @@ while running:
         for i in play_entitys:
             i.draw(mode)
 
+        for i in comment_list:
+            i.draw(mode)
+
         if scan_count % fps == 0:
             if count_timer.count():
                 mode = "end"
@@ -726,7 +743,13 @@ while running:
             for i in play_entitys:
                 i.choice = False
 
+            for i in end_entitys:
+                i.clear = 255 #不透明最大
+
     elif mode == "end":
+
+        for i in end_entitys:
+            i.draw(mode)
 
         count_result.draw()
         if scan_count % fps == 0:
@@ -734,7 +757,9 @@ while running:
                 mode = "menu" 
         
         if mode == "menu":#mode が menuになって初めの一回のみ宣言する
-            fps = 10#デフォルトのfps 30
+            fps = defo_fps#デフォルトのfps 30
+            for i in end_entitys:
+                i.clear = 0
             count_result.reset()
 
 

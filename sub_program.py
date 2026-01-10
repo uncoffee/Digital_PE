@@ -77,6 +77,7 @@ class random_choice:
     def choice(self , entity_list):
         while True:
             self.new_choice["entity"] = random.choice(entity_list)
+
             if self.random_point == None:
                 break
 
@@ -89,20 +90,23 @@ class random_choice:
             return
         
         width_max = self.random_point["width"] - self.random_point["padding"]
-        width_min = 0 + self.random_point["padding"]
+        width_min = self.random_point["padding"]
         height_max = self.random_point["height"] - self.random_point["padding"]
-        height_min = 0 + self.random_point["padding"]
+        height_min = self.random_point["padding"]
 
         while True:
             self.new_choice["width"] = random.randint(width_min ,  width_max)
-            if np.abs(self.choice_log["width"] - self.random_point["width"]) > self.random_point["near"]:
+            if np.abs(self.choice_log["width"] - self.new_choice["width"]) > self.random_point["near"]:
                 break
         self.choice_log["width"] = self.new_choice["width"]
     
         while True:
             self.new_choice["height"] = random.randint(height_min , height_max)
-            if np.abs(self.choice_log["height"] - self.random_point["height"]) > self.random_point["near"]:
+            if np.abs(self.choice_log["height"] - self.new_choice["height"]) > self.random_point["near"]:
                 break
         self.choice_log["height"] = self.new_choice["height"]
 
         self.new_choice["entity"].draw_point = (self.new_choice["width"] , self.new_choice["height"])
+        print(self.new_choice["entity"].draw_point)
+        print(self.new_choice["entity"].info["img_name"])
+        print(self.new_choice["entity"].choice)
