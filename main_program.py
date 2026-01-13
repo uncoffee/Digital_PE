@@ -243,32 +243,35 @@ class jump_entity:#今のところwiiは一台のみ使用するため、class�
         except:
             print("デバイスがみつからねえ")
 
-    def draw(self,mode):
-        #重力加速度の値を入手するための値と、出力形式。
+    def get_value(self):
         report_key = 0x31
+        report = self.device.read(22)
+        
+        # reportのなかにあるデータが加速度に関するものかどうかを確かめてる
+        if not report[0] == report_key or len(report) >= 6:
+            return
+            #通常の値が高いのに下位2ビット()気にしたところで変わらんので省略　※詳しくはwii.pyのcalculate_accelerometer関数を参照
+        raw_x = report[3] << 2
+        raw_y = report[4] << 2
+        raw_z = report[5] << 2
 
+        return (raw_x,raw_y,raw_z)
+    
+    def draw(self,mode):
+
+        
         if mode == "play":
+            #pygameの描写
             self.device.set_nonblocking(True)
             self.img.set_alpha(self.clear)
             front_surface.blit(self.img,self.info["draw_point"])
 
-            report = self.device.read(22)
+            #重力加速度データの取得
+            raw_x , raw_y , raw_z = self.get_value()
 
-        if not report:
-            return 
-            
-        # reportのなかにあるデータが加速度に関するものかどうかを確かめてる
-        if not report[0] == report_key or len(report) >= 6:
-            #通常の値が高いのに下位2ビット()気にしたところで変わらんので省略　※詳しくはwii.pyのcalculate_accelerometer関数を参照
-            raw_x = report[3] << 2
-            raw_y = report[4] << 2
-            raw_z = report[5] << 2
-
+            #運動量の点数計算して加点する。
             ave = int(raw_x + raw_y + raw_z) // 3
-            print(ave)
-            print(f"raw_x{raw_x} raw_y{raw_y} raw_z{raw_z}")
             point = abs(raw_x - ave) + abs(raw_y - ave) + abs(raw_z - ave)
-
             count_result.exercise_move(point)
             
 
@@ -290,7 +293,7 @@ class jump_entity:#今のところwiiは一台のみ使用するため、class�
 
             if mode == "end":
                 self.device.set_nonblocking(False)
-                    
+                        
 def img_range_changer(size):
     #25この値は 666px * 375pxの画像をpygameに落とした後、描画サイズ1に対して、200分の1px画素数の値（これは半径である。）※円の画像基準
     size * 25
