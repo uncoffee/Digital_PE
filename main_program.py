@@ -35,9 +35,9 @@ import time
 
 pygame.init()
 
+#画面サイズ
 w = 1920
 h = 1080
-screen = pygame.display.set_mode((w, h),pygame.FULLSCREEN  | pygame.SCALED | pygame.HWSURFACE)
 
 #変更可
 
@@ -45,12 +45,13 @@ screen = pygame.display.set_mode((w, h),pygame.FULLSCREEN  | pygame.SCALED | pyg
 defo_fps = 30
 fps = defo_fps
 
+#現れて消えるまでの速さ。
+Appearance_time = 255 // fps * 5 #何秒押したら判定されるか。
+Disappearance_time = 255 // fps * 2 #不透明な状態から透明になるまでの秒数。
 
-split_varue = 20 #円が出てくるマス目の細かさ
-
-comment_size = 200 #コメントのサイズを指定する
-
+#プレイモードの継続時間
 play_time = 10
+
 
 #変更不可
 game_point = 0
@@ -64,17 +65,15 @@ difficulty_level = "easy"
 
 pygame.display.set_caption("デジタル体育")
 
+screen = pygame.display.set_mode((w, h),pygame.FULLSCREEN  | pygame.SCALED | pygame.HWSURFACE)
+
 front_surface = pygame.Surface((w,h), pygame.SRCALPHA)
 
 middle_surface = pygame.Surface((w,h), pygame.SRCALPHA)
 
 back_surface = pygame.Surface((w,h),pygame.SRCALPHA)
-
-
-circle_time = 1 #0にするとZeroDivisionErrorが出る
-
-check_count = 0
     
+
 def change_x(A, B, now):
     x1, y1 = A
     x2, y2 = B
@@ -183,7 +182,7 @@ class player_marker(aruco_entity): #画像データと座標データ分ける�
 
         if mode == "play":
             if self.choice == True:
-                self.clear += 20
+                self.clear += Appearance_time
                 
                 if self.clear > 255:
                     self.clear = 255
@@ -193,7 +192,7 @@ class player_marker(aruco_entity): #画像データと座標データ分ける�
                     push_checker(player_chenge_point(self.now_point),self)
 
             else:
-                self.clear -= 30
+                self.clear -= Disappearance_time
                 if self.clear < 0:
                     self.clear = 0
 
@@ -276,10 +275,10 @@ class jump_entity:#今のところwiiは一台のみ使用するため、class�
             
 
             if self.choice == True:
-                self.clear += 10
+                self.clear += Appearance_time
                 
             else:
-                self.clear -= 10
+                self.clear -= Disappearance_time
 
             if self.clear > 255:
                 self.clear = 255
@@ -356,10 +355,11 @@ class level_entitys:
                 back_surface.blit(self.img, self.info["draw_point"])
 
     def action(self):
-        self.clear += 10 #この値でどれくらい長押し？すればアクションが起きるかを設定できる。
+        self.clear += Appearance_time
         if self.clear > self.clear_range["max"]:
             self.clear = self.clear_range["max"]
-
+            
+            #選ばれていたものをリセットして新しいものにする。
             for i in level_entity_list:
                 i.choice = False
             self.choice = True
@@ -370,7 +370,7 @@ class level_entitys:
     def back_action(self):
         if not self.choice == True:
             # 別のモードが選択された時に消えるスピード
-            self.clear -= 60
+            self.clear -= Disappearance_time
             if self.clear < self.clear_range["min"]:
                 self.clear = self.clear_range["min"]
 
@@ -408,28 +408,16 @@ class button_entity:
                 back_surface.blit(self.img, self.info["draw_point"])
 
     def action(self):
-        global difficulty_level
+        global mode
         if difficulty_level != None:
-            self.clear += 30
+            self.clear += Appearance_time
             if self.clear > self.clear_range["max"]:
-                self.clear = 0 #またメニューに戻ってきても押せるようにリセットする。
-                global mode
-                global circle_time
-                mode = self.info["change_mode"]
-
-                if difficulty_level == "easy":
-                    circle_time = 5
-
-                if difficulty_level == "normal":
-                    circle_time = 4
-
-                if difficulty_level == "hard":
-                    circle_time = 3
-
+                self.clear = self.clear_range["min"] #またメニューに戻ってきても押せるようにリセットする。
                 count_timer.reset(play_time) #play_time はモードplayの持続時間
+                mode = "play"
         
     def back_action(self):
-        self.clear -= 60
+        self.clear -= Disappearance_time
         if self.clear < self.clear_range["min"]:
             self.clear = self.clear_range["min"]
 
@@ -538,6 +526,9 @@ def scan_manager(scan_count,mode):
             markers, ids, rejected = aruco_detector.detectMarkers(frame)
             if ids is not None:
                 for i in range(len(markers)):
+                    if not type(ids[i]) == int:#判定ををアルコマーカに絞る
+                        continue
+
                     ID = ids[i]
                     C1 = markers[i][0][0]
                     C2 = markers[i][0][1]
@@ -606,22 +597,22 @@ play_entitys += player_marker_list
 
 #------------------------------------------------------------------------
 
-back_entity_list = [
-    back_entitys({"acction":False ,"img_name":"level_frame.png" ,"draw_point":((w / 2) - 900,(h / 2) - 500)})
-]
-menu_entitys += back_entity_list
+# back_entity_list = [
+#     back_entitys({"acction":False ,"img_name":"level_frame.png" ,"draw_point":((w / 2) - 900,(h / 2) - 500)})
+# ]
+# menu_entitys += back_entity_list
 
 #------------------------------------------------------------------------
 
-level_entity_list = [
-    level_entitys({"acction":True ,"level":"easy" ,"img_name":"moveeasy.png" ,"draw_point":((w * 3 / 12) -300,(h / 3) - 167) ,"hit_box":(277,679,242,485)}),
-    level_entitys({"acction":True ,"level":"normal" ,"img_name":"movenormal.png" ,"draw_point":((w * 6 / 12) -300,(h / 3) - 167) ,"hit_box":(757,1159,242,485)}),
-    level_entitys({"acction":True ,"level":"hard" ,"img_name":"movehard.png" ,"draw_point":((w * 9 / 12) -300,(h / 3) - 167) ,"hit_box":(1237,1639,242,485)}),
-    level_entitys({"acction":False ,"img_name":"easy.png" ,"draw_point":((w * 3 / 12) -300,(h / 3) - 167)}),
-    level_entitys({"acction":False ,"img_name":"normal.png" ,"draw_point":((w * 6 / 12) -300,(h / 3) - 167)}),
-    level_entitys({"acction":False ,"img_name":"hard.png" ,"draw_point":((w * 9 / 12) -300,(h / 3) - 167)})
-]
-menu_entitys += level_entity_list
+# level_entity_list = [
+#     level_entitys({"acction":True ,"level":"easy" ,"img_name":"moveeasy.png" ,"draw_point":((w * 3 / 12) -300,(h / 3) - 167) ,"hit_box":(277,679,242,485)}),
+#     level_entitys({"acction":True ,"level":"normal" ,"img_name":"movenormal.png" ,"draw_point":((w * 6 / 12) -300,(h / 3) - 167) ,"hit_box":(757,1159,242,485)}),
+#     level_entitys({"acction":True ,"level":"hard" ,"img_name":"movehard.png" ,"draw_point":((w * 9 / 12) -300,(h / 3) - 167) ,"hit_box":(1237,1639,242,485)}),
+#     level_entitys({"acction":False ,"img_name":"easy.png" ,"draw_point":((w * 3 / 12) -300,(h / 3) - 167)}),
+#     level_entitys({"acction":False ,"img_name":"normal.png" ,"draw_point":((w * 6 / 12) -300,(h / 3) - 167)}),
+#     level_entitys({"acction":False ,"img_name":"hard.png" ,"draw_point":((w * 9 / 12) -300,(h / 3) - 167)})
+# ]
+# menu_entitys += level_entity_list
 
 #-----------------------------------------------------------------------
 
