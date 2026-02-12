@@ -526,10 +526,8 @@ def scan_manager(scan_count,mode):
             markers, ids, rejected = aruco_detector.detectMarkers(frame)
             if ids is not None:
                 for i in range(len(markers)):
-                    if not type(ids[i]) == int:#判定ををアルコマーカに絞る
-                        continue
 
-                    ID = ids[i]
+                    ID = ids[i][0]
                     C1 = markers[i][0][0]
                     C2 = markers[i][0][1]
                     C3 = markers[i][0][2]
@@ -537,9 +535,16 @@ def scan_manager(scan_count,mode):
                     ave = int((C1[0] + C2[0] + C3[0] + C4[0]) / 4) , int((C1[1] + C2 [1] + C3[1] + C4[1]) / 4)
 
                     for j in set_entitys:
-                        if j.info["marker_id"] == int(ID):
+                        print(ID)
+                        try:
+                            if j.info["marker_id"] == int(ID):
                                 j.count = 0
                                 j.set_now_point(ave)
+                        
+                        except Exception as e:
+                            print(f"予想外のエラー:{e}")
+
+
 
 #sub_programのクラスをたたく。
 random_choicer = random_choice()
