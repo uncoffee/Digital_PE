@@ -115,6 +115,7 @@ def player_chenge_point(player):
     mouse_y = int(h * 0.8 * (player[1] -  top_y) / (bottom_y - top_y) + h * 0.1) #多分なんかやらかしてる。ああああああああああああああああああああああああああああああああああああああああ
 
     #print(f"縦 :{top_y,player[1],bottom_y, mouse_y}")
+    print(mouse_x , mouse_y)
 
     return mouse_x , mouse_y
 
@@ -149,7 +150,7 @@ class edge_marker(aruco_entity):
                 pygame.draw.circle(back_surface, (255,0,0),(self.set_point), 30)
                 
             else:
-                pygame.draw.circle(back_surface, (255,255,255),(self.set_point), 30)
+                pygame.draw.circle(back_surface, (100,100,100),(self.set_point), 30)
                 
 
 class player_marker(aruco_entity): #画像データと座標データ分ける？
@@ -159,7 +160,7 @@ class player_marker(aruco_entity): #画像データと座標データ分ける�
         self.draw_point = (0,0)
         self.img = image_changer(info["img_name"],self.img_size)
         self.choice = False #画面に表示されるかどうか
-        self.clear = 0 #drawした時の透明度(アルファ値)
+        self.clear = 255 #drawした時の透明度(アルファ値)
         self.guide_marker = False #Trueならメニューの時に追従してくれる。
 
         if info["img_name"] == "red_feet.png":
@@ -535,7 +536,6 @@ def scan_manager(scan_count,mode):
                     ave = int((C1[0] + C2[0] + C3[0] + C4[0]) / 4) , int((C1[1] + C2 [1] + C3[1] + C4[1]) / 4)
 
                     for j in set_entitys:
-                        print(ID)
                         try:
                             if j.info["marker_id"] == int(ID):
                                 j.count = 0
@@ -594,8 +594,8 @@ set_entitys += edge_marker_list
 player_marker_list = [
     player_marker({"marker_id":5 ,"acction":True ,"img_name":"blue_feet.png" ,"set_point":[(w * 5 // 9) - 90,(h * 1 // 9) - 50]}),
     player_marker({"marker_id":6 ,"acction":True ,"img_name":"red_feet.png" ,"set_point":[(w * 5 // 9) - 90,(h * 2 // 9) - 50]}),
-    player_marker({"marker_id":7 ,"acction":True ,"img_name":"blue_hand.png" ,"set_point":[(w * 4 // 9) - 90,(h * 1 // 9) - 50]}),
-    player_marker({"marker_id":8 ,"acction":True ,"img_name":"red_hand.png" ,"set_point":[(w * 4 // 9) - 90,(h * 2 // 9) - 50]})
+    # player_marker({"marker_id":7 ,"acction":True ,"img_name":"blue_hand.png" ,"set_point":[(w * 4 // 9) - 90,(h * 1 // 9) - 50]}),
+    # player_marker({"marker_id":8 ,"acction":True ,"img_name":"red_hand.png" ,"set_point":[(w * 4 // 9) - 90,(h * 2 // 9) - 50]})
 ]
 set_entitys += player_marker_list
 play_entitys += player_marker_list
